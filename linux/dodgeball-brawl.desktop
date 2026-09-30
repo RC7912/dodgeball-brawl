@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Dodgeball Brawl
+GenericName=Dodgeball Game
+Comment=One-ball dodgeball against CPU bots: free-for-all or teams
+Exec=dodgeball-brawl
+Icon=dodgeball-brawl
+Terminal=false
+Categories=Game;ActionGame;
+Keywords=dodgeball;ball;arcade;game;
+StartupWMClass=dodgeball-brawl
+StartupNotify=true

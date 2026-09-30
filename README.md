@@ -27,5 +27,17 @@ A fast HTML5 dodgeball game you play against CPU opponents, right in your browse
 | Pause | P / Esc / ⏸ button |
 | Restart | R |
 
+## Ubuntu app
+Download `dodgeball-brawl_1.0.0_all.deb` from the [latest release](https://github.com/RC7912/dodgeball-brawl/releases/latest), then:
+
+```bash
+sudo apt install ./dodgeball-brawl_1.0.0_all.deb
+```
+
+Open **Dodgeball Brawl** from your app menu (or run `dodgeball-brawl`). Press **F11** for fullscreen.
+To remove it: `sudo apt remove dodgeball-brawl`.
+
+Build the package yourself with `linux/build-deb.sh` (output goes to `dist/`).
+
 ## Run locally
 It's a single file: just open `index.html` in a browser.
