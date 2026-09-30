@@ -9,6 +9,12 @@ A fast HTML5 dodgeball game you play against CPU opponents, right in your browse
 - **Teams:** Blue vs Red (1v1 up to 4v4). Stay on your side of the center line and knock out the whole other team.
 - **Endless:** you against never-ending waves of bots that get bigger, faster and more accurate. 3 lives, +1 life per wave cleared (max 5). Your best run is saved.
 
+## Shop
+Earn **$1 for every player you knock out** (hit or catch, any mode). Your money is saved. Spend it in the 🛒 Shop:
+- **Upgrades:** Power Arm (faster throws), Speed Shoes, Sticky Gloves (longer catch window), Turbo Dash, Extra Heart (more Endless lives)
+- **Player skins:** Lime, Grape, Bubblegum, Gold, Rainbow
+- **Ball skins:** Ocean, Slime, Shadow, Golden
+
 ## Rules
 - There's only **one ball**.
 - Get hit and you're out: you sit down right where you got hit.
@@ -29,10 +35,10 @@ A fast HTML5 dodgeball game you play against CPU opponents, right in your browse
 | Restart | R |
 
 ## Ubuntu app
-Download `dodgeball-brawl_1.1.0_all.deb` from the [latest release](https://github.com/RC7912/dodgeball-brawl/releases/latest), then:
+Download `dodgeball-brawl_1.2.0_all.deb` from the [latest release](https://github.com/RC7912/dodgeball-brawl/releases/latest), then:
 
 ```bash
-sudo apt install ./dodgeball-brawl_1.1.0_all.deb
+sudo apt install ./dodgeball-brawl_1.2.0_all.deb
 ```
 
 Open **Dodgeball Brawl** from your app menu (or run `dodgeball-brawl`). Press **F11** for fullscreen.
