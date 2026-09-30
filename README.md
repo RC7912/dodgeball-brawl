@@ -12,6 +12,7 @@ A fast HTML5 dodgeball game you play against CPU opponents, right in your browse
 - There's only **one ball**.
 - Get hit and you're out: you sit down right where you got hit.
 - If the loose ball rolls up close to you, you grab it and you're **back in**, already holding the ball.
+- Bots randomly help: sometimes a bot rolls the ball to someone who's sitting out so they can get back in. In Teams mode they only help teammates.
 - Catch a throw and the thrower is out. In Teams mode a catch also brings a teammate back.
 
 ## Controls
