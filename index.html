@@ -112,8 +112,8 @@ function syncMenu() {
   document.getElementById('cpuRow').classList.toggle('hidden', teams);
   document.getElementById('teamRow').classList.toggle('hidden', !teams);
   document.getElementById('modeDesc').textContent = teams
-    ? 'Blue vs Red, one ball. Stay on your side of the center line. Get hit and you sit on the sideline until the ball rolls near you. Catch a throw to knock out the thrower and bring a teammate back in. Knock out the whole other team to win.'
-    : 'One ball, no teams, everyone for themselves. Get hit and you sit on the sideline until the ball rolls near you. Last one standing wins.';
+    ? 'Blue vs Red, one ball. Stay on your side of the center line. Get hit and you sit down right where you are until the ball rolls near you. Catch a throw to knock out the thrower and bring a teammate back in. Knock out the whole other team to win.'
+    : 'One ball, no teams, everyone for themselves. Get hit and you sit down right where you are until the ball rolls near you. Last one standing wins.';
 }
 makeBtns(document.getElementById('modeBtns'), ['ffa', 'teams'], 'mode', v => v === 'ffa' ? 'Free-for-all' : 'Teams', syncMenu);
 makeBtns(document.getElementById('teamBtns'), [1, 2, 3, 4], 'teamSize', v => `${v} v ${v}`);
@@ -276,19 +276,9 @@ function knockOut(p, reason) {
   burst(p.x, p.y, p.color, 22, 260);
   popup(p.x, p.y - 30, reason === 'caught' ? 'CAUGHT OUT!' : 'OUT!', '#ff5a3c', 24);
   sfx.hit(); sfx.out();
-  // go sit on the nearest sideline
-  const dl = p.x - A.x, dr = A.x + A.w - p.x, dt = p.y - A.y, db = A.y + A.h - p.y, m = Math.min(dl, dr, dt, db);
-  p.sitX = m === dl ? A.x + p.r : m === dr ? A.x + A.w - p.r : p.x;
-  p.sitY = m === dt ? A.y + p.r : m === db ? A.y + A.h - p.r : p.y;
-  // don't stack on top of another sitter (and stay on your own half in teams)
+  // sit down right where you got hit
   const [minX, maxX] = xRange(p);
-  p.sitX = clamp(p.sitX, minX, maxX);
-  for (let tries = 0; tries < 12; tries++) {
-    const o = players.find(q => q !== p && !q.alive && Math.hypot(q.sitX - p.sitX, q.sitY - p.sitY) < p.r * 2.2);
-    if (!o) break;
-    if (m === dl || m === dr) p.sitY = clamp(p.sitY + (p.sitY < A.y + A.h / 2 ? 40 : -40), A.y + p.r, A.y + A.h - p.r);
-    else p.sitX = clamp(p.sitX + (p.sitX < (minX + maxX) / 2 ? 40 : -40), minX, maxX);
-  }
+  p.sitX = clamp(p.x, minX, maxX); p.sitY = p.y;
 }
 function revive(p, b) {
   p.alive = true; p.outT = 0; p.revives++;
@@ -544,7 +534,8 @@ function updateBalls(dt) {
         if (b.owner) b.owner.hits++;
         knockOut(p, 'hit');
         const nx = (b.x - p.x), ny = (b.y - p.y), nl = Math.hypot(nx, ny) || 1;
-        b.vx = nx / nl * spd * 0.35 + rand(-40, 40); b.vy = ny / nl * spd * 0.35 + rand(-40, 40);
+        const bounce = Math.max(spd * 0.35, 380); // roll clear of the player it hit
+        b.vx = nx / nl * bounce + rand(-40, 40); b.vy = ny / nl * bounce + rand(-40, 40);
         b.state = 'ground'; b.owner = null;
         break;
       }
@@ -579,13 +570,13 @@ function endGame(winner, winTeam) {
     t.textContent = won ? `🏆 ${TEAM_NAMES[winTeam]} TEAM WINS!` : `${TEAM_NAMES[winTeam]} TEAM WINS`;
     t.style.color = won ? '#80ed99' : '#ff5a3c';
     s.textContent = (won ? `Your team knocked out every ${TEAM_NAMES[1 - me.team].toLowerCase()} player (${settings.teamSize} v ${settings.teamSize}, ${settings.diff}). `
-                         : `Your whole team ended up on the sideline. `) + stats;
+                         : `Your whole team got knocked out. `) + stats;
   } else if (winner === me) {
     t.textContent = '🏆 YOU WIN!'; t.style.color = '#80ed99';
     s.textContent = `Last one standing against ${settings.cpus} CPU${settings.cpus > 1 ? 's' : ''} on ${settings.diff}. ${stats}`;
   } else {
     t.textContent = winner ? `${winner.name.toUpperCase()} WINS` : 'NOBODY WINS'; t.style.color = '#ff5a3c';
-    s.textContent = `You were stuck on the sideline when the last player got knocked out. ${stats}`;
+    s.textContent = `You were still sitting when the last player got knocked out. ${stats}`;
   }
   setTimeout(() => { if (state === 'over') endEl.classList.remove('hidden'); }, 900);
 }
@@ -638,7 +629,7 @@ function outline(p) {
 }
 function drawPlayer(p) {
   if (!p.alive) {
-    // sitting on the sideline, waiting for the ball
+    // sitting where they got hit, waiting for the ball
     const ready = p.outT <= 0;
     if (ready) {
       ctx.strokeStyle = p.color + '66'; ctx.lineWidth = 2; ctx.setLineDash([4, 5]);
@@ -705,7 +696,7 @@ function drawHUD() {
   const me = players[0];
   if (me && !me.alive && state === 'play') {
     ctx.textAlign = 'center'; ctx.font = 'bold 18px system-ui'; ctx.fillStyle = '#ffd166';
-    ctx.fillText(me.outT > 0 ? "You're out! Heading to the sideline…" : mode === 'teams' ? "You're out! Grab the ball when it rolls near you, or wait for a teammate's catch." : "You're out! Grab the ball when it rolls near you to get back in.", W / 2, A.y + A.h + 24);
+    ctx.fillText(me.outT > 0 ? "You're out! Sit tight…" : mode === 'teams' ? "You're out! Grab the ball when it rolls near you, or wait for a teammate's catch." : "You're out! Grab the ball when it rolls near you to get back in.", W / 2, A.y + A.h + 24);
   }
   if (me && me.alive) {
     ctx.textAlign = 'right'; ctx.font = '12px system-ui';
