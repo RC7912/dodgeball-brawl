@@ -13,6 +13,7 @@ A fast HTML5 dodgeball game you play against CPU opponents, right in your browse
 - Get hit and you're out: you sit down right where you got hit.
 - If the loose ball rolls up close to you, you grab it and you're **back in**, already holding the ball.
 - Bots randomly help: sometimes a bot rolls the ball to someone who's sitting out so they can get back in. In Teams mode they only help teammates.
+- Bots talk: they trash-talk, react to hits and catches, beg for the ball while sitting, and say thanks when helped.
 - Catch a throw and the thrower is out. In Teams mode a catch also brings a teammate back.
 
 ## Controls

@@ -113,7 +113,7 @@ function syncMenu() {
   document.getElementById('teamRow').classList.toggle('hidden', !teams);
   document.getElementById('modeDesc').textContent = teams
     ? 'Blue vs Red, one ball. Stay on your side of the center line. Get hit and you sit down right where you are until the ball rolls near you, and your bot teammates will sometimes roll it to you. Catch a throw to knock out the thrower and bring a teammate back in. Knock out the whole other team to win.'
-    : 'One ball, no teams, everyone for themselves. Get hit and you sit down right where you are until the ball rolls near you. Sometimes a nice bot rolls it to you. Last one standing wins.';
+    : 'One ball, no teams, everyone for themselves. Get hit and you sit down right where you are until the ball rolls near you. Sometimes a nice bot rolls it to you. The bots talk trash (and say thanks). Last one standing wins.';
 }
 makeBtns(document.getElementById('modeBtns'), ['ffa', 'teams'], 'mode', v => v === 'ffa' ? 'Free-for-all' : 'Teams', syncMenu);
 makeBtns(document.getElementById('teamBtns'), [1, 2, 3, 4], 'teamSize', v => `${v} v ${v}`);
@@ -240,6 +240,43 @@ function newGame() {
   for (const p of players) p.aim = Math.atan2(cy - p.y, cx - p.x);
   balls.push({ id: ballId++, x: cx, y: cy, vx: 0, vy: 0, r: 10, state: 'ground', owner: null, holder: null, spin: 0 });
   countdown = 3; state = 'play'; mouse.click = false; catchPressed = false; dashPressed = false;
+  for (const p of players) if (!p.isHuman && Math.random() < 0.4) say(p, 'start', players[0], 1, true);
+}
+
+// ---------- bot chatter ----------
+const LINES = {
+  start:     ['Let\'s gooo!', 'I\'m gonna win this.', 'Nobody touch the ball, it\'s mine.', 'Good luck, {t}!', 'Warmed up and ready!', 'Easy game.'],
+  hit:       ['Got you, {t}!', 'Bullseye!', 'Sit down, {t}!', 'Too slow!', 'Boom!', 'Right on target!', 'Did that hurt?', 'Aww, bye {t}!'],
+  gotHit:    ['Ow!', 'Nooo!', 'Lucky shot, {t}.', 'Not fair!', 'I wasn\'t ready!', 'My face!', 'I\'ll be back.', 'Ugh, {t}!'],
+  caught:    ['Caught it!', 'Nice try, {t}!', 'Thanks for the ball!', 'Too easy!', 'Butter hands? Not me.'],
+  gotCaught: ['Wait, what?!', 'How did you catch that?!', 'Seriously, {t}?', 'I threw that way too soft.'],
+  help:      ['Here, {t}, get back in!', 'I got you, {t}!', 'Catch, {t}! Well, grab it.', 'Get up, {t}!', 'Go go go, {t}!'],
+  thanks:    ['Thanks, {t}!', 'You\'re the best, {t}!', 'I owe you one, {t}!', 'My hero!', 'Aww, {t}!'],
+  back:      ['I\'m back, baby!', 'Miss me?', 'Round two!', 'You can\'t keep me down!', 'Revenge time!'],
+  dodge:     ['Whoa!', 'Missed me!', 'Nope!', 'Too slow!', 'Can\'t touch this!', 'Close one!'],
+  pickup:    ['Mine!', 'Who wants it?', 'Oh, you\'re in trouble now.', 'I got the ball!', 'Run, {t}!'],
+  taunt:     ['You\'re next, {t}.', 'Don\'t blink, {t}.', 'Watch this.', 'Hold still, {t}.', 'I see you, {t}!'],
+  sitting:   ['Roll it here!', 'Somebody help me!', 'Over here!', 'Pass it pleeease!', 'I\'m so bored.', 'Just one ball, please...'],
+  win:       ['GG!', 'Too easy!', 'Champion!', 'Nobody beats me!', 'Winner winner!', 'Good game, everybody!'],
+  teamWin:   ['Teamwork!', 'We did it!', 'Great game, team!', 'GG, team!'],
+};
+const HUMAN_NICKS = ['buddy', 'pal', 'champ', 'newbie', 'you'];
+const nick = q => q ? (q.isHuman ? HUMAN_NICKS[Math.floor(Math.random() * HUMAN_NICKS.length)] : q.name) : 'everyone';
+// a bot says a line from a category; `chance` < 1 makes it only sometimes speak, and bots have a cooldown so they don't spam
+function say(p, cat, target, chance = 1, force = false) {
+  if (!p || p.isHuman || Math.random() > chance) return;
+  if (!force && p.sayCd > 0) return;
+  const pool = LINES[cat];
+  let line = pool[Math.floor(Math.random() * pool.length)];
+  if (line.includes('{t}') && !target) line = pool.find(l => !l.includes('{t}')) || line.replace(', {t}', '').replace('{t}', '');
+  p.speech = { text: line.replace('{t}', nick(target)), t: 2.4 };
+  p.sayCd = rand(2.5, 5);
+}
+function tickSpeech(dt) {
+  for (const p of players) {
+    p.sayCd = Math.max(0, (p.sayCd || 0) - dt);
+    if (p.speech && (p.speech.t -= dt) <= 0) p.speech = null;
+  }
 }
 
 // ---------- actions ----------
@@ -262,7 +299,7 @@ function rollTo(p, q) {
   const spd = clamp((d - p.r - q.r) * 2.95, 150, 1500); // ground friction brings it to rest right beside them
   b.vx = Math.cos(ang) * spd; b.vy = Math.sin(ang) * spd;
   p.ball = null; p.pickCd = 0.5; p.throwCd = 0.25; p.aim = ang;
-  popup(p.x, p.y - 32, q.isHuman ? 'Here, get back in!' : `Here ${q.name}!`, '#80ed99', 15);
+  say(p, 'help', q, 1, true);
   beep(700, 0.08, 'sine', 0.06, 200);
 }
 function startCatch(p) {
@@ -281,7 +318,7 @@ function dropBall(p) {
   b.vx = rand(-80, 80); b.vy = rand(-80, 80);
   p.ball = null;
 }
-function knockOut(p, reason) {
+function knockOut(p, reason, by) {
   if (!p.alive) return;
   p.alive = false; p.outT = SIT_GRACE; p.outAt = time; p.flash = 0.2; p.catchT = 0; p.dashT = 0;
   dropBall(p);
@@ -289,6 +326,8 @@ function knockOut(p, reason) {
   burst(p.x, p.y, p.color, 22, 260);
   popup(p.x, p.y - 30, reason === 'caught' ? 'CAUGHT OUT!' : 'OUT!', '#ff5a3c', 24);
   sfx.hit(); sfx.out();
+  say(p, reason === 'caught' ? 'gotCaught' : 'gotHit', by, 0.65, true);
+  if (by && reason === 'hit') say(by, 'hit', p, 0.55, true);
   // sit down right where you got hit
   const [minX, maxX] = xRange(p);
   p.sitX = clamp(p.x, minX, maxX); p.sitY = p.y;
@@ -304,8 +343,9 @@ function revive(p, b) {
   if (b) { b.passTo = null; b.passFrom = null; }
   if (helper && helper !== p) {
     helper.helps++; p.helpedBack++;
-    popup(p.x, p.y - 30, `BACK IN! thanks ${helper.isHuman ? 'you' : helper.name}!`, '#80ed99', 18);
-  } else popup(p.x, p.y - 30, 'BACK IN!', '#80ed99', 22);
+    popup(p.x, p.y - 30, 'BACK IN!', '#80ed99', 22);
+    say(p, 'thanks', helper, 1, true);
+  } else { popup(p.x, p.y - 30, 'BACK IN!', '#80ed99', 22); say(p, 'back', null, 0.6, true); }
   sfx.catch();
 }
 function burst(x, y, color, n, spd) {
@@ -319,6 +359,7 @@ function popup(x, y, text, color, size) { popups.push({ x, y, text, color, size,
 // ---------- update ----------
 function update(dt) {
   time += dt;
+  tickSpeech(dt);
   if (countdown > 0) {
     const before = Math.ceil(countdown);
     countdown -= dt;
@@ -332,6 +373,7 @@ function update(dt) {
   for (const p of players) {
     if (!p.alive) {
       p.outT = Math.max(0, p.outT - dt); p.flash = Math.max(0, p.flash - dt);
+      if (p.outT <= 0 && Math.random() < dt * 0.08) say(p, 'sitting', null, 1);
       const k = 1 - Math.pow(0.002, dt);
       p.x += (p.sitX - p.x) * k; p.y += (p.sitY - p.y) * k;
       continue;
@@ -419,6 +461,7 @@ function updateAI(p, dt) {
       const r = Math.random();
       const action = (!p.ball && r < D.catch) ? 'catch' : (r < D.catch + D.dodge ? 'dodge' : 'none');
       re = { action, delay: rand(0, D.react), seen: 0, throwTime: b.throwStamp };
+      if (action === 'dodge') say(p, 'dodge', b.owner, 0.3);
       ai.reacts.set(b.id, re);
     }
     re.seen += dt;
@@ -467,6 +510,7 @@ function updateAI(p, dt) {
       }
     } else {
       // holding a ball: every so often a bot decides to be nice and help someone who's sitting out
+      if (Math.random() < dt * 0.12) say(p, 'taunt', ai.target, 1);
       ai.helpT -= dt;
       if (ai.helpT <= 0 && p.throwCd <= 0) {
         ai.helpT = rand(0.8, 1.6);
@@ -552,7 +596,8 @@ function updateBalls(dt) {
           p.catchT = 0; p.catchCd = 0.3;
           sfx.catch(); burst(b.x, b.y, '#ffffff', 14, 200);
           popup(p.x, p.y - 34, 'NICE CATCH!', '#80ed99', 18);
-          if (thrower && thrower.alive) knockOut(thrower, 'caught');
+          say(p, 'caught', thrower, 0.8, true);
+          if (thrower && thrower.alive) knockOut(thrower, 'caught', p);
           if (mode === 'teams') {
             // a catch brings back the teammate who has been sitting longest
             const mate = players.filter(q => q.team === p.team && !q.alive).sort((a, c) => a.outAt - c.outAt)[0];
@@ -562,7 +607,7 @@ function updateBalls(dt) {
         }
         if (p.invuln > 0) continue;
         if (b.owner) b.owner.hits++;
-        knockOut(p, 'hit');
+        knockOut(p, 'hit', b.owner);
         const nx = (b.x - p.x), ny = (b.y - p.y), nl = Math.hypot(nx, ny) || 1;
         const bounce = Math.max(spd * 0.35, 380); // roll clear of the player it hit
         b.vx = nx / nl * bounce + rand(-40, 40); b.vy = ny / nl * bounce + rand(-40, 40);
@@ -583,7 +628,7 @@ function updateBalls(dt) {
         if (Math.hypot(p.x - b.x, p.y - b.y) < p.r + b.r + 2) {
           b.state = 'held'; b.holder = p; p.ball = b; b.passTo = null; b.passFrom = null;
           if (p.isHuman) sfx.pick();
-          if (p.ai) p.ai.throwT = Math.max(p.ai.throwT, rand(0.3, 0.8));
+          if (p.ai) { p.ai.throwT = Math.max(p.ai.throwT, rand(0.3, 0.8)); say(p, 'pickup', players.find(o => o.alive && isEnemy(p, o) && o.isHuman), 0.25); }
           break;
         }
       }
@@ -594,6 +639,8 @@ function updateBalls(dt) {
 function endGame(winner, winTeam) {
   if (state !== 'play') return;
   state = 'over';
+  if (mode === 'teams') { for (const p of players) if (p.team === winTeam && p.alive) say(p, 'teamWin', null, 0.7, true); }
+  else if (winner) say(winner, 'win', null, 1, true);
   const t = document.getElementById('endTitle'), s = document.getElementById('endSub');
   const me = players[0];
   const stats = `You hit ${me.hits} player${me.hits === 1 ? '' : 's'} and came back ${me.revives} time${me.revives === 1 ? '' : 's'}.` +
@@ -710,6 +757,28 @@ function drawPlayer(p) {
   ctx.fillStyle = p.color; ctx.fillText(p.name, p.x, p.y - p.r - 12);
 }
 
+function drawSpeech(p) {
+  const sp = p.speech, fade = Math.min(1, sp.t * 3, (2.4 - sp.t) * 8);
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.font = 'bold 12px system-ui';
+  const w = ctx.measureText(sp.text).width + 16, h = 22;
+  let x = clamp(p.x - w / 2, 4, W - w - 4), y = p.y - p.r - 30 - h;
+  if (y < A.y - 10) y = p.y + p.r + 16; // no room above: show it below
+  const below = y > p.y;
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = p.color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 8); ctx.fill(); ctx.stroke();
+  const tx = clamp(p.x, x + 10, x + w - 10);
+  ctx.beginPath();
+  if (below) { ctx.moveTo(tx - 6, y + 1); ctx.lineTo(tx, y - 7); ctx.lineTo(tx + 6, y + 1); }
+  else { ctx.moveTo(tx - 6, y + h - 1); ctx.lineTo(tx, y + h + 7); ctx.lineTo(tx + 6, y + h - 1); }
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.fillRect(tx - 5, below ? y : y + h - 3, 10, 3);
+  ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(sp.text, x + w / 2, y + h / 2 + 1);
+  ctx.restore();
+}
+
 function drawHUD() {
   // top bar
   ctx.fillStyle = '#1b1e29'; ctx.fillRect(0, 0, W, 56);
@@ -771,6 +840,7 @@ function render() {
     for (const p of players) if (!p.alive) drawPlayer(p);
     for (const p of players) if (p.alive) drawPlayer(p);
     for (const b of balls) if (b.state === 'held') drawBall(b);
+    for (const p of players) if (p.speech) drawSpeech(p);
     // aim line
     const me = players[0];
     if (me && me.alive && me.ball && countdown <= 0) {
@@ -819,6 +889,7 @@ function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
   if (state === 'play') update(dt);
   else if (state === 'over') { // let particles finish
+    tickSpeech(dt);
     for (const q of particles) { q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; }
     particles = particles.filter(q => q.life > 0);
     for (const q of popups) { q.y -= 30 * dt; q.life -= dt; }
