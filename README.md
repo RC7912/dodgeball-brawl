@@ -35,10 +35,10 @@ Earn **$1 for every player you knock out** (hit or catch, any mode). Your money 
 | Restart | R |
 
 ## Ubuntu app
-Download `dodgeball-brawl_1.2.0_all.deb` from the [latest release](https://github.com/RC7912/dodgeball-brawl/releases/latest), then:
+Download `dodgeball-brawl_1.2.1_all.deb` from the [latest release](https://github.com/RC7912/dodgeball-brawl/releases/latest), then:
 
 ```bash
-sudo apt install ./dodgeball-brawl_1.2.0_all.deb
+sudo apt install ./dodgeball-brawl_1.2.1_all.deb
 ```
 
 Open **Dodgeball Brawl** from your app menu (or run `dodgeball-brawl`). Press **F11** for fullscreen.

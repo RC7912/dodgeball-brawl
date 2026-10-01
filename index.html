@@ -26,6 +26,7 @@
   .money{display:inline-block;font-size:22px;font-weight:900;color:#ffd166;background:#2a2f42;border-radius:12px;padding:6px 16px;margin-bottom:6px}
   .shop-sec{margin:14px 0 6px;text-align:left;color:#aab;font-size:13px;text-transform:uppercase;letter-spacing:1px}
   .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+  .saved{color:#80ed99;font-weight:800;font-size:14px;transition:opacity .4s}
   .item{background:#23273a;border:2px solid #333a52;border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px}
   .item.equipped{border-color:#80ed99}
   .item .ic{font-size:28px;line-height:1.2}
@@ -85,7 +86,7 @@
   <div class="panel shop-panel">
     <h2>🛒 SHOP</h2>
     <p class="sub" style="margin-bottom:8px">You earn <b>$1</b> for every player you knock out.</p>
-    <div class="money" id="shopMoney">$0</div>
+    <div class="money" id="shopMoney">$0</div> <span id="savedTag" class="saved"></span>
     <div id="shopBody"></div>
     <button class="big" id="shopBack">BACK</button>
   </div>
@@ -197,12 +198,25 @@ const SHOP = {
   ],
 };
 const SAVE_KEY = 'dodgeball-save';
+// The Ubuntu app hands us its save file as window.__desktopSave and writes it back through a
+// message handler, so purchases hit the disk immediately. The website uses localStorage.
+const desktopSaver = () => window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.dodgeballSave;
 function loadSave() {
-  const d = { money: 0, up: {}, owned: ['white', 'red'], skin: 'white', ball: 'red' };
-  try { return Object.assign(d, JSON.parse(localStorage.getItem(SAVE_KEY)) || {}); } catch (e) { return d; }
+  const d = { money: 0, up: {}, owned: ['white', 'red'], skin: 'white', ball: 'red', best: {} };
+  let raw = null;
+  if (typeof window.__desktopSave === 'string') raw = window.__desktopSave;
+  else try { raw = localStorage.getItem(SAVE_KEY); } catch (e) {}
+  try { return Object.assign(d, JSON.parse(raw) || {}); } catch (e) { return d; }
 }
 let save = loadSave();
-function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+function writeSave() {
+  const json = JSON.stringify(save);
+  let ok = false;
+  try { localStorage.setItem(SAVE_KEY, json); ok = true; } catch (e) {}
+  try { if (desktopSaver()) { desktopSaver().postMessage(json); ok = true; } } catch (e) {}
+  return ok;
+}
+if (desktopSaver() && typeof window.__desktopSave !== 'string') writeSave(); // first run: move the old save into the file
 const lvl = id => save.up[id] || 0;
 const skinColor = () => {
   const sk = SHOP.skins.find(k => k.id === save.skin) || SHOP.skins[0];
@@ -238,7 +252,12 @@ function renderShop() {
       const d = document.createElement('div'); d.className = cls; d.textContent = txt; c.appendChild(d);
     }
     const b = document.createElement('button'); b.textContent = btnText; b.disabled = disabled;
-    b.onclick = () => { onClick(); writeSave(); renderShop(); };
+    b.onclick = () => {
+      onClick(); const ok = writeSave(); renderShop();
+      const tag = document.getElementById('savedTag');
+      tag.textContent = ok ? '✓ Saved' : '⚠ Could not save'; tag.style.color = ok ? '#80ed99' : '#ff5a3c'; tag.style.opacity = 1;
+      clearTimeout(tag._t); tag._t = setTimeout(() => { tag.style.opacity = 0; }, 1500);
+    };
     c.appendChild(b);
     return c;
   };
@@ -332,9 +351,11 @@ let endless = null; // { wave, kos, lives, clearing, breakT, banner } while in e
 const ENDLESS_NAMES = ['Zap', 'Blitz', 'Echo', 'Fang', 'Jinx', 'Pixel', 'Turbo', 'Spike', 'Comet', 'Dash', 'Rex', 'Mako', 'Nitro', 'Sly', 'Bruno', 'Kiki'];
 const ENDLESS_COLORS = ['#ff9f1c', '#4cc9f0', '#80ed99', '#f72585', '#c8b6ff', '#ffd166', '#ef476f', '#72efdd', '#ffb4a2', '#b8f2e6'];
 const maxLives = () => 5 + lvl('heart');
-function bestKey() { return 'dodgeball-endless-best-' + settings.diff; }
-function loadBest() { try { return JSON.parse(localStorage.getItem(bestKey())) || { wave: 0, kos: 0 }; } catch (e) { return { wave: 0, kos: 0 }; } }
-function saveBest(b) { try { localStorage.setItem(bestKey(), JSON.stringify(b)); } catch (e) {} }
+function loadBest() {
+  if (save.best && save.best[settings.diff]) return save.best[settings.diff];
+  try { return JSON.parse(localStorage.getItem('dodgeball-endless-best-' + settings.diff)) || { wave: 0, kos: 0 }; } catch (e) { return { wave: 0, kos: 0 }; }
+}
+function saveBest(b) { save.best = save.best || {}; save.best[settings.diff] = b; writeSave(); }
 
 function makePlayer(name, color, x, y, isHuman, team) {
   return {
